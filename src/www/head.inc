@@ -203,35 +203,46 @@ $pagetitle .= html_safe(sprintf(' | %s.%s', $config['system']['hostname'], $conf
                   }
               });
               $("#menu_search_box").typeahead({
-                  source: menusearch_items,
-                  matcher: function (item) {
-                      var ar = this.query.trim();
-                      if (ar == "") {
-                          return false;
-                      }
-                      ar = ar.toLowerCase().split(/\s+/);
-                      if (ar.length == 0) {
-                          return false;
-                      }
-                      var it = this.displayText(item).toLowerCase();
-                      for (var i = 0; i < ar.length; i++) {
-                          if (it.indexOf(ar[i]) == -1) {
-                              return false;
+                  source: function (query, process) {
+                      return $.ajax("/api/core/menu/search/", {
+                          type: 'get',
+                          cache: false,
+                          dataType: "json",
+                          data: { 
+                              q: query,
+                              fulltext: "1" // Enable fulltext search
+                          },
+                          success: function (data) {
+                              // Convert data to array if it's not already
+                              var items = Array.isArray(data) ? data : [];
+                              return process(items);
                           }
-                      }
+                      });
+                  },
+                  matcher: function () {
+                      // Items are pre-filtered by server
                       return true;
+                  },
+                  displayText: function(item) {
+                      if (item.type === 'content' && item.snippet) {
+                          return item.name + ' - ' + item.snippet;
+                      } else {
+                          return item.name;
+                      }
                   },
                   afterSelect: function(item){
                       // (re)load page
-                      if (window.location.href.split("#")[0].indexOf(item.id.split("#")[0]) > -1 ) {
+                      if (window.location.href.split("#")[0].indexOf(item.id.split("#")[0]) > -1) {
                           // same url, different hash marker
                           window.location.href = item.id;
                           window.location.reload();
                       } else {
                           window.location.href = item.id;
                       }
-                  }
-              });
+                  },
+                  items: 15,
+                  minLength: 2
+            });
           }
       });
 

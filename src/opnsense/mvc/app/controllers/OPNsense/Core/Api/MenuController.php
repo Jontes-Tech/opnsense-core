@@ -179,14 +179,37 @@ class MenuController extends ApiControllerBase
      */
     public function searchAction()
     {
-        $menu_items = $this->getMenu(null);
-        $query = $this->request->get("q", null, null);
-        if ($query != null) {
-            // only search when a query is provided, otherwise return all entries
-            $this->search($menu_items, $query);
+        // Get search query
+        $search_phrase = $this->request->get("q", "");
+        $results = [];
+        
+        // Include fulltext search if parameter is set
+        $includeFulltext = $this->request->get("fulltext", "0") == "1";
+        
+        // Get menu items (existing functionality)
+        $menu_items = [];
+        $menu = new \OPNsense\Base\Menu\MenuSystem();
+        $menu_data = $menu->getItems($search_phrase);
+        $this->extractMenuLeaves($menu_data, $menu_items);
+        
+        // Add menu items to results
+        foreach ($menu_items as $menu_item) {
+            if (!empty($menu_item['Url'])) {
+                $results[] = [
+                    'id' => html_entity_decode($menu_item['Url']),
+                    'name' => html_entity_decode($menu_item['breadcrumb']),
+                    'type' => 'menu'
+                ];
+            }
         }
-        $items = array();
-        $this->extractMenuLeaves($menu_items, $items);
-        return $items;
+        
+        // Add content search results if fulltext is enabled
+        if ($includeFulltext && !empty($search_phrase)) {
+            $content_results = $this->searchInContent($search_phrase);
+            foreach ($content_results as $item) {
+                $results[] = $item;
+            }
+        }
+        return $results;
     }
 }
